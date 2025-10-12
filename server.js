@@ -38,7 +38,7 @@ app.post('/v1/chat/completions', async (req, res) => {
 
     // Prepare NVIDIA API request
     const nvidiaRequest = {
-      model: 'deepseek-v3.1'
+      model: "deepseek-ai/deepseek-v3.1"
       messages: messages,
       temperature: temperature || 0.7,
       max_tokens: max_tokens || 1024,
@@ -95,3 +95,20 @@ app.get('/v1/models', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
 });
+
+from openai import OpenAI
+
+# Initialize the client with your NIM endpoint and API key
+client = OpenAI(
+    base_url="https://integrate.api.nvidia.com/v1", # The base NIM endpoint
+    api_key="nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" # Your NVIDIA API Key
+)
+
+# Then, when making a chat completion request, you specify the model name:
+chat_completion = client.chat.completions.create(
+    model="deepseek-ai/deepseek-v3.1", # The specific model on NIM
+    messages=[{"role": "user", "content": "Hello, how are you?"}],
+    temperature=1.1,
+    top_p=1,
+    max_tokens=0
+)
