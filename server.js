@@ -36,9 +36,11 @@ app.post('/v1/chat/completions', async (req, res) => {
     // Extract OpenAI format request
     const { model, messages, temperature, max_tokens, stream } = req.body;
 
-    // Prepare NVIDIA API request
+    console.log(`Request received for model: ${model}`);
+
+    // Prepare NVIDIA API request - using the correct model ID
     const nvidiaRequest = {
-      model: "deepseek-ai/deepseek-v3.1"
+      model: "deepseek-ai/deepseek-v3.1", // Fixed: added comma and correct model ID
       messages: messages,
       temperature: temperature || 0.7,
       max_tokens: max_tokens || 1024,
@@ -71,7 +73,8 @@ app.post('/v1/chat/completions', async (req, res) => {
     res.status(error.response?.status || 500).json({
       error: {
         message: error.response?.data?.message || error.message,
-        type: 'proxy_error'
+        type: 'proxy_error',
+        details: error.response?.data || null
       }
     });
   }
@@ -87,6 +90,12 @@ app.get('/v1/models', (req, res) => {
         object: 'model',
         created: Date.now(),
         owned_by: 'nvidia'
+      },
+      {
+        id: 'deepseek-ai/deepseek-v3.1',
+        object: 'model',
+        created: Date.now(),
+        owned_by: 'nvidia'
       }
     ]
   });
@@ -94,21 +103,5 @@ app.get('/v1/models', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
+  console.log(`NVIDIA API Key configured: ${NVIDIA_API_KEY ? 'Yes' : 'No'}`);
 });
-
-from openai import OpenAI
-
-# Initialize the client with your NIM endpoint and API key
-client = OpenAI(
-    base_url="https://integrate.api.nvidia.com/v1", # The base NIM endpoint
-    api_key="nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" # Your NVIDIA API Key
-)
-
-# Then, when making a chat completion request, you specify the model name:
-chat_completion = client.chat.completions.create(
-    model="deepseek-ai/deepseek-v3.1", # The specific model on NIM
-    messages=[{"role": "user", "content": "Hello, how are you?"}],
-    temperature=1.1,
-    top_p=1,
-    max_tokens=0
-)
