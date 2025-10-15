@@ -42,8 +42,8 @@ app.post('/v1/chat/completions', async (req, res) => {
     const nvidiaRequest = {
       model: "deepseek-ai/deepseek-v3.1", // Fixed: added comma and correct model ID
       messages: messages,
-      temperature: temperature || 0.7,
-      max_tokens: max_tokens || 1024,
+      temperature: temperature || 1.1,
+      max_tokens: max_tokens || 2048,
       stream: stream || false
     };
 
