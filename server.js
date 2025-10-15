@@ -38,9 +38,10 @@ app.post('/v1/chat/completions', async (req, res) => {
 
     console.log(`Request received for model: ${model}`);
 
-    // Prepare NVIDIA API request - using the correct model ID
+   // Prepare NVIDIA API request - using the correct model ID
     const nvidiaRequest = {
-      model: "deepseek-ai/deepseek-v3.1", // Fixed: added comma and correct model ID
+      model: "deepseek-ai/deepseek-r1-0528", // Fixed: added comma and correct model ID
+      messages: messages,
       messages: messages,
       temperature: temperature || 1.1,
       max_tokens: max_tokens || 2048,
