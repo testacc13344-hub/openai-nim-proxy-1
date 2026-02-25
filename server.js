@@ -1,54 +1,59 @@
 const express = require('express');
 const axios = require('axios');
-const app = express();
 
-// CORS middleware - MUST be before other middleware
+const app = express();
+const PORT = process.env.PORT || 3000;
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+
+// Fail fast if no API key is configured
+if (!NVIDIA_API_KEY) {
+  console.error('FATAL: NVIDIA_API_KEY environment variable is not set.');
+  process.exit(1);
+}
+
+// CORS middleware
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
   next();
 });
 
 app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
-const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
-const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
-
-// Health check endpoint
+// Health check
 app.get('/', (req, res) => {
-  res.json({ 
-    status: 'running', 
+  res.json({
+    status: 'running',
     message: 'NVIDIA NIM Proxy Server',
     timestamp: new Date().toISOString()
   });
 });
 
-// OpenAI-compatible chat completions endpoint
+// OpenAI-compatible chat completions
 app.post('/v1/chat/completions', async (req, res) => {
   try {
-    // Extract OpenAI format request
     const { model, messages, temperature, max_tokens, stream } = req.body;
+
+    if (!model || !messages) {
+      return res.status(400).json({
+        error: { message: '`model` and `messages` are required fields.', type: 'invalid_request_error' }
+      });
+    }
 
     console.log(`Request received for model: ${model}`);
 
-   // Prepare NVIDIA API request - using the correct model ID
     const nvidiaRequest = {
-      model: "deepseek-ai/deepseek-r1-0528", // Fixed: added comma and correct model ID
-      messages: messages,
-      messages: messages,
-      temperature: temperature || 1.1,
-      max_tokens: max_tokens || 0,
-      stream: stream || false
+      model,
+      messages,
+      temperature: temperature ?? 1.0,
+      stream: stream || false,
+      ...(max_tokens != null && { max_tokens }) // only include if explicitly provided
     };
 
-    // Make request to NVIDIA API
     const response = await axios.post(
       `${NVIDIA_BASE_URL}/chat/completions`,
       nvidiaRequest,
@@ -61,10 +66,15 @@ app.post('/v1/chat/completions', async (req, res) => {
       }
     );
 
-    // Return response in OpenAI format
     if (stream) {
       res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
       response.data.pipe(res);
+      // Handle upstream stream errors
+      response.data.on('error', (err) => {
+        console.error('Stream error:', err.message);
+        res.end();
+      });
     } else {
       res.json(response.data);
     }
@@ -81,28 +91,19 @@ app.post('/v1/chat/completions', async (req, res) => {
   }
 });
 
-// Models endpoint (for compatibility)
+// Models endpoint
 app.get('/v1/models', (req, res) => {
+  const created = Math.floor(Date.now() / 1000); // Unix seconds, not ms
   res.json({
     object: 'list',
     data: [
-      {
-        id: 'deepseek-r1',
-        object: 'model',
-        created: Date.now(),
-        owned_by: 'nvidia'
-      },
-      {
-        id: 'deepseek-ai/deepseek-v3.1',
-        object: 'model',
-        created: Date.now(),
-        owned_by: 'nvidia'
-      }
+      { id: 'deepseek-ai/deepseek-r1-0528', object: 'model', created, owned_by: 'nvidia' },
+      { id: 'deepseek-ai/deepseek-v3-0324', object: 'model', created, owned_by: 'nvidia' }
     ]
   });
 });
 
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
-  console.log(`NVIDIA API Key configured: ${NVIDIA_API_KEY ? 'Yes' : 'No'}`);
+  console.log(`NVIDIA API Key configured: Yes`);
 });
